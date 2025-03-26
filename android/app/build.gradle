@@ -1,0 +1,46 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.example.secura_app"
+    compileSdk = 34 // Update this to your desired API level
+
+    ndkVersion = "27.0.12077973"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8" // Ensure compatibility
+    }
+
+    defaultConfig {
+        applicationId = "com.example.secura_app" // Replace with your app's unique ID
+        minSdkVersion 33 // Minimum supported version
+        targetSdk = 34 // Target version
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            // Set up your signing config for release builds
+            signingConfig = signingConfigs.debug // Replace with your signing config
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    implementation "androidx.core:core-ktx:1.10.1" // Ensure compatibility with compileSdk
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0"
+}
