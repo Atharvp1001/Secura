@@ -1,0 +1,108 @@
+import psutil
+import os
+import socket
+import time
+from tkinter import Tk, filedialog
+
+# Trusted domains (Google, Microsoft, Amazon AWS, Steam, Unity, etc.)
+SAFE_DOMAINS = [
+    "googleusercontent.com", "google.com", "1e100.net",  # Google
+    "microsoft.com", "azure.com", "windows.net",  # Microsoft
+    "amazonaws.com", "compute.amazonaws.com",  # Amazon AWS
+    "unity3d.com", "steamcommunity.com", "epicgames.com",  # Gaming
+    "playstation.net", "xboxlive.com", "nvidia.com"
+]
+
+# Known unsafe IPs or domains (for demonstration purposes, real lists would be more extensive)
+UNSAFE_DOMAINS = [
+    "malicious.com", "phishing-site.com", "data-leak.com"  # Example unsafe domains
+]
+
+def select_app():
+    """ Opens a file dialog to select an application for testing. """
+    Tk().withdraw()
+    app_path = filedialog.askopenfilename(title="Select an App to Test", filetypes=[("Executable Files", "*.exe")])
+    return app_path if app_path else None
+
+def get_domain(ip):
+    """ Resolves an IP address to a domain name, if possible. """
+    try:
+        return socket.gethostbyaddr(ip)[0]
+    except socket.herror:
+        return None  # Could not resolve
+    except:
+        return "Private network IP"  # Might be a local IP
+
+def classify_domain(domain, ip):
+    """ Classifies a domain as SAFE, UNSAFE, or UNKNOWN. """
+    if domain:
+        if any(trusted in domain for trusted in SAFE_DOMAINS):
+            return f"✅ SAFE ({domain})"
+        elif any(malicious in domain for malicious in UNSAFE_DOMAINS):
+            return f"❌ UNSAFE: Confirmed Data Leak ({domain})"
+        else:
+            return f"❓ UNKNOWN: Suspicious but Unverified ({domain})"
+    else:
+        return f"❓ UNKNOWN: Could not resolve domain - IP: {ip}"
+
+def monitor_app(app_path):
+    """ Launches the application, monitors its activity, and terminates it. """
+    print(f"\n[INFO] Starting app: {app_path}...")
+    process = psutil.Popen(app_path)
+
+    time.sleep(10)  # Give the app time to start
+
+    p = psutil.Process(process.pid)
+    
+    # Checking file access
+    print("\n[INFO] Checking file access:")
+    suspicious_files = 0
+    for file in p.open_files():
+        if "Passwords" in file.path or "Documents" in file.path:
+            print(f" - {file.path} ❌ POTENTIAL DATA LEAK")
+            suspicious_files += 1
+        else:
+            print(f" - {file.path} ✅ SAFE")
+
+    # Checking network connections for 20 seconds
+    print("\n[INFO] Monitoring network connections...")
+    suspicious_connections = 0
+    monitored_ips = set()
+
+    for _ in range(20):  # Check every second for 20 seconds
+        try:
+            connections = psutil.net_connections(kind='inet')
+            for conn in connections:
+                if conn.status == "ESTABLISHED" and conn.raddr:
+                    ip = conn.raddr.ip
+                    if ip not in monitored_ips:  # Avoid duplicate logs
+                        monitored_ips.add(ip)
+                        domain = get_domain(ip)
+                        result = classify_domain(domain, ip)
+                        print(f" - {result}")
+                        if "UNSAFE" in result:
+                            suspicious_connections += 1
+        except psutil.AccessDenied:
+            print("⚠️ Unable to access network connections.")
+            break
+        time.sleep(1)
+
+    # Terminate the application
+    print("\n[INFO] Terminating application...")
+    process.terminate()
+    process.wait()  # Ensure the process is fully closed
+    print("[INFO] Application closed.")
+
+    # Final verdict
+    print("\n[RESULT]")
+    if suspicious_files == 0 and suspicious_connections == 0:
+        print("✅ APP IS SAFE TO USE.")
+    else:
+        print("⚠️ WARNING: Suspicious activity detected. The app may be leaking data. ❌")
+
+if __name__ == "__main__":
+    app = select_app()
+    if app:
+        monitor_app(app)
+    else:
+        print("[ERROR] No app selected.")
